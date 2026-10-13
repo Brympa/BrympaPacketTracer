@@ -1,0 +1,197 @@
+/* ==========================================================================
+   BrympaPacketTracer Design System & VS Code Themes
+   Clean Architecture Token System (Zero Visual Clutter)
+   ========================================================================== */
+
+:root,
+:root[data-theme="dark-modern"] {
+  --bg-app: #0e1117;
+  --bg-canvas: #090d14;
+  --bg-panel: #161b22;
+  --bg-surface: #21262d;
+  --bg-hover: #30363d;
+  --border-subtle: #2b313a;
+  --border-focus: #38bdf8;
+  --text-primary: #f0f6fc;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --accent-cyan: #38bdf8;
+  --accent-hover: #0284c7;
+  --status-up: #22c55e;
+  --status-down: #ef4444;
+  --status-alert: #f59e0b;
+  --terminal-bg: #090d14;
+  --terminal-fg: #f0f6fc;
+  --canvas-grid: #1a2230;
+}
+
+:root[data-theme="tokyo-night"] {
+  --bg-app: #1a1b26;
+  --bg-canvas: #16161e;
+  --bg-panel: #1f2335;
+  --bg-surface: #24283b;
+  --bg-hover: #292e42;
+  --border-subtle: #2f354f;
+  --border-focus: #7aa2f7;
+  --text-primary: #c0caf5;
+  --text-secondary: #9aa5ce;
+  --text-muted: #565f89;
+  --accent-cyan: #7dcfff;
+  --accent-hover: #2ac3de;
+  --status-up: #9ece6a;
+  --status-down: #f7768e;
+  --status-alert: #e0af68;
+  --terminal-bg: #16161e;
+  --terminal-fg: #c0caf5;
+  --canvas-grid: #24283b;
+}
+
+:root[data-theme="catppuccin-mocha"] {
+  --bg-app: #1e1e2e;
+  --bg-canvas: #11111b;
+  --bg-panel: #181825;
+  --bg-surface: #313244;
+  --bg-hover: #45475a;
+  --border-subtle: #313244;
+  --border-focus: #89dceb;
+  --text-primary: #cdd6f4;
+  --text-secondary: #a6adc8;
+  --text-muted: #6c7086;
+  --accent-cyan: #89dceb;
+  --accent-hover: #74c7ec;
+  --status-up: #a6e3a1;
+  --status-down: #f38ba8;
+  --status-alert: #f9e2af;
+  --terminal-bg: #11111b;
+  --terminal-fg: #cdd6f4;
+  --canvas-grid: #1e1e2e;
+}
+
+:root[data-theme="github-light"] {
+  --bg-app: #f6f8fa;
+  --bg-canvas: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-surface: #f3f4f6;
+  --bg-hover: #e5e7eb;
+  --border-subtle: #d0d7de;
+  --border-focus: #0969da;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --text-muted: #8c959f;
+  --accent-cyan: #0969da;
+  --accent-hover: #0550ae;
+  --status-up: #1a7f37;
+  --status-down: #cf222e;
+  --status-alert: #9a6700;
+  --terminal-bg: #1f2328;
+  --terminal-fg: #f6f8fa;
+  --canvas-grid: #e5e7eb;
+}
+
+:root[data-theme="high-contrast"] {
+  --bg-app: #000000;
+  --bg-canvas: #000000;
+  --bg-panel: #000000;
+  --bg-surface: #121212;
+  --bg-hover: #242424;
+  --border-subtle: #ffffff;
+  --border-focus: #00ffff;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
+  --text-muted: #888888;
+  --accent-cyan: #00ffff;
+  --accent-hover: #00cccc;
+  --status-up: #00ff00;
+  --status-down: #ff0000;
+  --status-alert: #ffff00;
+  --terminal-bg: #000000;
+  --terminal-fg: #00ff00;
+  --canvas-grid: #333333;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Geist", sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base button and input styling */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+button:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-focus);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button.primary {
+  background-color: var(--accent-cyan);
+  color: #090d14;
+  border-color: transparent;
+  font-weight: 500;
+}
+
+button.primary:hover {
+  background-color: var(--accent-hover);
+}
+
+input, select {
+  font-family: inherit;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--border-focus);
+}
+
+/* React Flow styling overrides */
+.react-flow__background {
+  background-color: var(--bg-canvas) !important;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2.5;
+  stroke: var(--text-secondary);
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent-cyan) !important;
+  stroke-width: 3.5;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
