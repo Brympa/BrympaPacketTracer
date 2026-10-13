@@ -195,3 +195,50 @@ input:focus, select:focus {
 .react-flow__attribution {
   display: none !important;
 }
+
+/* React Flow Controls (Zoom In, Zoom Out, Fit, Lock) Theme Adaptation */
+.react-flow__controls {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background-color: var(--bg-surface) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  border-right: none !important;
+  border-left: none !important;
+  border-top: none !important;
+  color: var(--text-primary) !important;
+  fill: var(--text-primary) !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s ease, fill 0.15s ease;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--bg-hover) !important;
+  fill: var(--accent-cyan) !important;
+  color: var(--accent-cyan) !important;
+}
+
+.react-flow__controls-button svg {
+  fill: var(--text-primary) !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+}
+
+.react-flow__controls-button:hover svg {
+  fill: var(--accent-cyan) !important;
+}
+

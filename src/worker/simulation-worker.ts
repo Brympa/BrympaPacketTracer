@@ -134,6 +134,56 @@ export class SimulationWorkerHost {
         this.syncTopology();
         break;
 
+      case 'CONFIGURE_HOST': {
+        const { hostId, ip, mask, gateway } = msg.payload;
+        const dev = this.engine.getDevice(hostId);
+        if (dev && dev.type === 'HOST') {
+          const host = dev as VirtualHost;
+          if (ip && mask) {
+            host.configureNetwork(ip, mask, gateway);
+          } else if (gateway !== undefined) {
+            host.defaultGateway = gateway;
+          }
+          this.syncTopology();
+        }
+        break;
+      }
+
+      case 'CONFIGURE_INTERFACE': {
+        const { deviceId, interfaceName, ip, mask, adminStatus, mode, accessVlan } = msg.payload;
+        const dev = this.engine.getDevice(deviceId);
+        if (dev) {
+          const iface = dev.getInterface(interfaceName);
+          if (iface) {
+            if (ip !== undefined) iface.ipAddress = ip || undefined;
+            if (mask !== undefined) iface.subnetMask = mask || undefined;
+            if (adminStatus !== undefined) iface.setAdminStatus(adminStatus);
+            if (mode !== undefined) iface.mode = mode;
+            if (accessVlan !== undefined) iface.accessVlan = accessVlan;
+
+            if (dev.type === 'ROUTER') {
+              (dev as VirtualRouter).refreshConnectedRoutes();
+            }
+            this.syncTopology();
+          }
+        }
+        break;
+      }
+
+      case 'ADD_STATIC_ROUTE': {
+        const { routerId, network, netmask, nextHop } = msg.payload;
+        const dev = this.engine.getDevice(routerId);
+        if (dev && dev.type === 'ROUTER') {
+          try {
+            (dev as VirtualRouter).addStaticRoute(network, netmask, nextHop);
+            this.syncTopology();
+          } catch {
+            // invalid route
+          }
+        }
+        break;
+      }
+
       case 'CLI_INPUT': {
         const { deviceId, line } = msg.payload;
         const session = this.cliSessions.get(deviceId);
@@ -289,10 +339,32 @@ export class SimulationWorkerHost {
   public syncTopology(): void {
     const devices: SerializedDevice[] = [];
     for (const [id, dev] of this.cliSessions.entries()) {
+      let defaultGateway: string | undefined;
+      let routingTable: any[] | undefined;
+      let camTable: any[] | undefined;
+      let arpTable: any[] | undefined;
+
+      if (dev.device.type === 'HOST') {
+        const h = dev.device as VirtualHost;
+        defaultGateway = h.defaultGateway;
+        arpTable = h.getArpTable();
+      } else if (dev.device.type === 'ROUTER') {
+        const r = dev.device as VirtualRouter;
+        routingTable = r.getRoutingTable();
+        arpTable = r.getArpTable();
+      } else if (dev.device.type === 'SWITCH') {
+        const s = dev.device as VirtualSwitch;
+        camTable = s.getCamTable(this.engine.now());
+      }
+
       devices.push({
         id,
         name: dev.device.name,
         type: dev.device.type,
+        defaultGateway,
+        routingTable,
+        camTable,
+        arpTable,
         interfaces: dev.device.getAllInterfaces().map((iface) => ({
           id: iface.id,
           name: iface.name,

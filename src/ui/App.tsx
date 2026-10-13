@@ -25,6 +25,7 @@ import {
   Monitor,
   Palette,
   Layers,
+  X,
 } from 'lucide-react';
 
 import { SimulationWorkerClient } from '../worker/worker-client';
@@ -38,6 +39,7 @@ import { PacketFlightOverlay } from './canvas/PacketFlightOverlay';
 import { ConsoleModal } from './terminal/ConsoleModal';
 import { WiringWizardModal } from './modals/WiringWizardModal';
 import { PacketInspectorModal } from './modals/PacketInspectorModal';
+import { DeviceDrawer } from './drawer/DeviceDrawer';
 
 import '../styles/themes.css';
 
@@ -67,10 +69,16 @@ export const App: React.FC = () => {
   const [flyingPackets, setFlyingPackets] = useState<FlyingPacketVisual[]>([]);
   const [simStats, setSimStats] = useState({ virtualTimeNs: '0', queueSize: 0, isRunning: false });
 
-  // UI Active Modals
+  // UI Active Modals & Drawer
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [activeConsoleDeviceId, setActiveConsoleDeviceId] = useState<string | null>(null);
   const [showWiringWizard, setShowWiringWizard] = useState(false);
+  const [wiringWizardEndpoints, setWiringWizardEndpoints] = useState<{ sourceId?: string; targetId?: string }>({});
   const [inspectedPacket, setInspectedPacket] = useState<FlyingPacketVisual | null>(null);
+
+  // Interactive Connect Mode (Cable Tool)
+  const [isConnectMode, setIsConnectMode] = useState(false);
+  const [connectSourceDevId, setConnectSourceDevId] = useState<string | null>(null);
 
   // React Flow Nodes and Edges
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -133,7 +141,7 @@ export const App: React.FC = () => {
           return {
             id: d.id,
             type: d.type,
-            position: existing ? existing.position : { x: 120 + index * 220, y: 160 + (index % 2) * 120 },
+            position: existing ? existing.position : { x: 120 + index * 240, y: 160 + (index % 2) * 120 },
             data: {
               device: d,
               onOpenConsole: handleOpenConsole,
@@ -213,6 +221,48 @@ export const App: React.FC = () => {
     []
   );
 
+  // Keyboard Delete handling (Delete / Backspace keys)
+  const onNodesDelete = useCallback(
+    (deletedNodes: Node[]) => {
+      for (const node of deletedNodes) {
+        client.removeDevice(node.id);
+      }
+      if (selectedDeviceId && deletedNodes.some((n) => n.id === selectedDeviceId)) {
+        setSelectedDeviceId(null);
+      }
+    },
+    [client, selectedDeviceId]
+  );
+
+  const onEdgesDelete = useCallback(
+    (deletedEdges: Edge[]) => {
+      for (const edge of deletedEdges) {
+        client.disconnectLink(edge.id);
+      }
+    },
+    [client]
+  );
+
+  // Canvas Node Click Handler
+  const onNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (isConnectMode) {
+        if (!connectSourceDevId) {
+          setConnectSourceDevId(node.id);
+        } else if (connectSourceDevId !== node.id) {
+          // Open Wiring Wizard pre-filled with both devices
+          setWiringWizardEndpoints({ sourceId: connectSourceDevId, targetId: node.id });
+          setShowWiringWizard(true);
+          setIsConnectMode(false);
+          setConnectSourceDevId(null);
+        }
+      } else {
+        setSelectedDeviceId(node.id);
+      }
+    },
+    [isConnectMode, connectSourceDevId]
+  );
+
   const onConnectEdge = useCallback(
     (connection: Connection) => {
       if (connection.source && connection.target) {
@@ -235,7 +285,8 @@ export const App: React.FC = () => {
     client.addDevice(id, `${prefix}-${count}`, type);
   };
 
-  const activeDevice = devices.find((d) => d.id === activeConsoleDeviceId);
+  const activeConsoleDevice = devices.find((d) => d.id === activeConsoleDeviceId);
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
 
   const virtualTimeMs = (Number(BigInt(simStats.virtualTimeNs) / 1000n) / 1000).toFixed(3);
 
@@ -313,7 +364,7 @@ export const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Device Palette & Theme Picker */}
+        {/* Right: Device Palette & Cable Tool & Theme Picker */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => addDevice('ROUTER')} title="Add Router">
             <RouterIcon size={14} />
@@ -330,9 +381,21 @@ export const App: React.FC = () => {
             + PC
           </button>
 
-          <button onClick={() => setShowWiringWizard(true)} title="Connect Cable (Touch Wizard)">
+          <button
+            onClick={() => {
+              setIsConnectMode((prev) => !prev);
+              setConnectSourceDevId(null);
+            }}
+            title="Toggle Cable Connection Tool"
+            style={{
+              backgroundColor: isConnectMode ? 'var(--accent-cyan)' : 'var(--bg-surface)',
+              color: isConnectMode ? '#090d14' : 'var(--text-primary)',
+              fontWeight: isConnectMode ? 600 : 400,
+              borderColor: isConnectMode ? 'var(--accent-cyan)' : 'var(--border-subtle)',
+            }}
+          >
             <Cable size={14} />
-            Connect
+            {isConnectMode ? 'Cable Tool: ON' : 'Connect Cable'}
           </button>
 
           {/* Theme Selector */}
@@ -361,9 +424,13 @@ export const App: React.FC = () => {
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          onNodesDelete={onNodesDelete}
+          onEdgesDelete={onEdgesDelete}
+          onNodeClick={onNodeClick}
           onConnect={onConnectEdge}
+          deleteKeyCode={['Backspace', 'Delete']}
           fitView
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', cursor: isConnectMode ? 'crosshair' : 'default' }}
         >
           <Background color="var(--canvas-grid, #1a2230)" gap={20} size={1} />
           <Controls style={{ bottom: 32, left: 16 }} />
@@ -373,9 +440,49 @@ export const App: React.FC = () => {
             packets={flyingPackets}
             nodes={nodes}
             width={canvasDimensions.width}
-            height={canvasDimensions.height - 76} // subtracting header and status bar
+            height={canvasDimensions.height - 76}
           />
         </ReactFlow>
+
+        {/* Cable Tool Helper Banner */}
+        {isConnectMode && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 35,
+              backgroundColor: 'var(--bg-panel)',
+              border: '1.5px solid var(--accent-cyan)',
+              borderRadius: 24,
+              padding: '6px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            <Cable size={16} color="var(--accent-cyan)" />
+            <span>
+              {connectSourceDevId
+                ? `Connecting from ${devices.find((d) => d.id === connectSourceDevId)?.name}: Click Destination Device`
+                : 'Cable Tool Active: Click first device on the canvas'}
+            </span>
+            <button
+              onClick={() => {
+                setIsConnectMode(false);
+                setConnectSourceDevId(null);
+              }}
+              style={{ padding: '2px 8px', fontSize: 11 }}
+            >
+              <X size={12} />
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* Floating packet inspector shortcut button if packets in flight */}
         {flyingPackets.length > 0 && (
@@ -423,15 +530,28 @@ export const App: React.FC = () => {
         </div>
 
         <div>
-          <span>Nodes: {devices.length} | Links: {edges.length}</span>
+          <span>Nodes: {devices.length} | Links: {edges.length} | Press [Del] to delete selected</span>
         </div>
       </footer>
 
-      {/* Active Cisco Console Modal */}
-      {activeDevice && (
+      {/* Cisco-style Device Right Drawer / Inspector Panel */}
+      {selectedDevice && (
+        <DeviceDrawer
+          device={selectedDevice}
+          client={client}
+          onClose={() => setSelectedDeviceId(null)}
+          onDeleteDevice={(devId) => {
+            client.removeDevice(devId);
+            setSelectedDeviceId(null);
+          }}
+        />
+      )}
+
+      {/* Active Standalone Cisco Console Modal */}
+      {activeConsoleDevice && (
         <ConsoleModal
-          deviceId={activeDevice.id}
-          deviceName={activeDevice.name}
+          deviceId={activeConsoleDevice.id}
+          deviceName={activeConsoleDevice.name}
           client={client}
           onClose={() => setActiveConsoleDeviceId(null)}
         />
@@ -441,11 +561,16 @@ export const App: React.FC = () => {
       {showWiringWizard && (
         <WiringWizardModal
           devices={devices}
+          initialSourceDevId={wiringWizardEndpoints.sourceId}
+          initialTargetDevId={wiringWizardEndpoints.targetId}
           onConnect={(source, target) => {
             const linkId = `link-${source.deviceId}-${target.deviceId}-${Date.now()}`;
             client.connectLink(linkId, source, target);
           }}
-          onClose={() => setShowWiringWizard(false)}
+          onClose={() => {
+            setShowWiringWizard(false);
+            setWiringWizardEndpoints({});
+          }}
         />
       )}
 

@@ -129,6 +129,22 @@ export class SimulationWorkerClient {
     this.post({ type: 'HOST_PING', payload: { hostId, targetIp } });
   }
 
+  public configureHost(hostId: string, ip?: string, mask?: string, gateway?: string): void {
+    this.post({ type: 'CONFIGURE_HOST', payload: { hostId, ip, mask, gateway } });
+  }
+
+  public configureInterface(
+    deviceId: string,
+    interfaceName: string,
+    config: { ip?: string; mask?: string; adminStatus?: 'UP' | 'DOWN'; mode?: 'access' | 'trunk'; accessVlan?: number }
+  ): void {
+    this.post({ type: 'CONFIGURE_INTERFACE', payload: { deviceId, interfaceName, ...config } });
+  }
+
+  public addStaticRoute(routerId: string, network: string, netmask: string, nextHop: string): void {
+    this.post({ type: 'ADD_STATIC_ROUTE', payload: { routerId, network, netmask, nextHop } });
+  }
+
   public terminate(): void {
     if (this.worker) {
       this.worker.terminate();

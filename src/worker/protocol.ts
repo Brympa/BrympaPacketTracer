@@ -30,11 +30,17 @@ export interface SerializedInterface {
   connectedLinkId?: string;
 }
 
+import { RouteEntry, CamEntry, ArpEntry } from '../core/types/network';
+
 export interface SerializedDevice {
   id: string;
   name: string;
   type: DeviceType;
   interfaces: SerializedInterface[];
+  defaultGateway?: Ipv4Address;
+  routingTable?: RouteEntry[];
+  camTable?: CamEntry[];
+  arpTable?: ArpEntry[];
 }
 
 export interface SerializedLink {
@@ -52,6 +58,10 @@ export type UiToWorkerMessage =
   | { type: 'REMOVE_DEVICE'; payload: { deviceId: string } }
   | { type: 'CONNECT_LINK'; payload: { id: string; source: { deviceId: string; interfaceName: string }; target: { deviceId: string; interfaceName: string }; delayNs?: string } }
   | { type: 'DISCONNECT_LINK'; payload: { linkId: string } }
+  | { type: 'CONFIGURE_HOST'; payload: { hostId: string; ip?: string; mask?: string; gateway?: string } }
+  | { type: 'CONFIGURE_INTERFACE'; payload: { deviceId: string; interfaceName: string; ip?: string; mask?: string; adminStatus?: 'UP' | 'DOWN'; mode?: 'access' | 'trunk'; accessVlan?: number } }
+  | { type: 'ADD_STATIC_ROUTE'; payload: { routerId: string; network: string; netmask: string; nextHop: string } }
+  | { type: 'REMOVE_STATIC_ROUTE'; payload: { routerId: string; network: string; netmask: string } }
   | { type: 'CLI_INPUT'; payload: { deviceId: string; line: string } }
   | { type: 'CLI_TAB'; payload: { deviceId: string; currentLine: string } }
   | { type: 'CLI_HELP'; payload: { deviceId: string; currentLine: string } }

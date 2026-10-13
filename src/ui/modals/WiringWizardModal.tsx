@@ -4,18 +4,26 @@ import { SerializedDevice } from '../../worker/protocol';
 
 export interface WiringWizardModalProps {
   devices: SerializedDevice[];
+  initialSourceDevId?: string;
+  initialTargetDevId?: string;
   onConnect: (source: { deviceId: string; interfaceName: string }, target: { deviceId: string; interfaceName: string }) => void;
   onClose: () => void;
 }
 
 export const WiringWizardModal: React.FC<WiringWizardModalProps> = ({
   devices,
+  initialSourceDevId,
+  initialTargetDevId,
   onConnect,
   onClose,
 }) => {
-  const [sourceDevId, setSourceDevId] = useState<string>(devices[0]?.id || '');
+  const [sourceDevId, setSourceDevId] = useState<string>(
+    initialSourceDevId || devices[0]?.id || ''
+  );
   const [sourceInterface, setSourceInterface] = useState<string>('');
-  const [targetDevId, setTargetDevId] = useState<string>(devices[1]?.id || '');
+  const [targetDevId, setTargetDevId] = useState<string>(
+    initialTargetDevId || devices.find((d) => d.id !== (initialSourceDevId || devices[0]?.id))?.id || devices[1]?.id || ''
+  );
   const [targetInterface, setTargetInterface] = useState<string>('');
 
   const sourceDev = devices.find((d) => d.id === sourceDevId);
