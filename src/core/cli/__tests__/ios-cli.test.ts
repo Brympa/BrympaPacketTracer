@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { VirtualHost } from '../../devices/host';
 import { VirtualRouter } from '../../devices/router';
 import { VirtualSwitch } from '../../devices/switch';
 import { IosCliSession } from '../ios-cli';
@@ -144,3 +145,104 @@ describe('Cisco IOS CLI - Tab Completion & Context Help', () => {
     expect(helpItems.map((h) => h.token)).toContain('version');
   });
 });
+
+describe('Cisco IOS CLI & Host PC - User EXEC Commands (ping, ipconfig, arp)', () => {
+  it('executes ping directly from PC> in USER_EXEC mode without enable', () => {
+    const pc = new VirtualHost({ id: 'pc1', name: 'PC-1' });
+    pc.configureNetwork('192.168.0.1', '255.255.255.0', '192.168.0.254');
+    const cli = new IosCliSession(pc);
+
+    expect(cli.state.mode).toBe('USER_EXEC');
+    expect(cli.getPrompt()).toBe('PC-1>');
+
+    // Ping IP in same subnet
+    const output = cli.executeLine('ping 192.168.0.2');
+    expect(output).toContain('Pinging 192.168.0.2 with 32 bytes of data:');
+    expect(output).toContain('Reply from 192.168.0.2: bytes=32 time=1ms TTL=128');
+    expect(output).toContain('Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)');
+  });
+
+  it('reports error when host ping has unconfigured IP', () => {
+    const pc = new VirtualHost({ id: 'pc1', name: 'PC-1' });
+    const cli = new IosCliSession(pc);
+
+    const output = cli.executeLine('ping 192.168.0.2');
+    expect(output).toContain('% Host IP address is not configured');
+  });
+
+  it('reports destination host unreachable when pinging foreign subnet without gateway', () => {
+    const pc = new VirtualHost({ id: 'pc1', name: 'PC-1' });
+    pc.configureNetwork('192.168.0.1', '255.255.255.0'); // no gateway
+    const cli = new IosCliSession(pc);
+
+    const output = cli.executeLine('ping 10.0.0.1');
+    expect(output).toContain('Destination host unreachable');
+    expect(output).toContain('Lost = 4 (100% loss)');
+  });
+
+  it('executes ipconfig and ipconfig /all on host', () => {
+    const pc = new VirtualHost({
+      id: 'pc1',
+      name: 'PC-1',
+      ipAddress: '192.168.0.1',
+      subnetMask: '255.255.255.0',
+      defaultGateway: '192.168.0.254',
+      macAddress: '00:50:79:6B:11:22',
+    });
+    const cli = new IosCliSession(pc);
+
+    // standard ipconfig
+    const ipconfigOut = cli.executeLine('ipconfig');
+    expect(ipconfigOut).toContain('IPv4 Address....................: 192.168.0.1');
+    expect(ipconfigOut).toContain('Subnet Mask.....................: 255.255.255.0');
+    expect(ipconfigOut).toContain('Default Gateway.................: 192.168.0.254');
+    expect(ipconfigOut).not.toContain('Physical Address');
+
+    // ipconfig /all
+    const ipconfigAllOut = cli.executeLine('ipconfig /all');
+    expect(ipconfigAllOut).toContain('Physical Address................: 00:50:79:6B:11:22');
+    expect(ipconfigAllOut).toContain('IPv4 Address....................: 192.168.0.1');
+  });
+
+  it('executes arp -a and arp -d', () => {
+    const pc = new VirtualHost({ id: 'pc1', name: 'PC-1' });
+    const cli = new IosCliSession(pc);
+
+    const emptyArp = cli.executeLine('arp -a');
+    expect(emptyArp).toBe('No ARP Entries Found.');
+
+    const clearArp = cli.executeLine('arp -d');
+    expect(clearArp).toBe('ARP table cleared.');
+  });
+
+  it('allows show ip int br in USER_EXEC mode on router without enable', () => {
+    const router = new VirtualRouter({ id: 'r1', name: 'Router' });
+    router.configureInterface('GigabitEthernet0/0', '192.168.0.254', '255.255.255.0');
+    const cli = new IosCliSession(router);
+
+    expect(cli.state.mode).toBe('USER_EXEC');
+    const out = cli.executeLine('show ip interface brief');
+    expect(out).toContain('GigabitEthernet0/0');
+    expect(out).toContain('192.168.0.254');
+  });
+
+  it('executes router ping in USER_EXEC mode with route and without route', () => {
+    const router = new VirtualRouter({ id: 'r1', name: 'Router' });
+    const gi0 = router.getInterface('GigabitEthernet0/0')!;
+    gi0.setLinkConnected(true, 'link-1');
+    router.configureInterface('GigabitEthernet0/0', '192.168.0.254', '255.255.255.0');
+    const cli = new IosCliSession(router);
+
+    // Ping destination on connected subnet
+    const successOut = cli.executeLine('ping 192.168.0.1');
+    expect(successOut).toContain('Sending 5, 100-byte ICMP Echos to 192.168.0.1');
+    expect(successOut).toContain('!!!!!');
+    expect(successOut).toContain('Success rate is 100 percent (5/5)');
+
+    // Ping unreachable subnet
+    const failOut = cli.executeLine('ping 172.16.1.1');
+    expect(failOut).toContain('.....');
+    expect(failOut).toContain('Success rate is 0 percent (0/5)');
+  });
+});
+

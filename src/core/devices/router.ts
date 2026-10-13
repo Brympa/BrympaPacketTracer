@@ -1,5 +1,5 @@
 import { EthernetFrame } from '../types/frame';
-import { ArpEntry, Ipv4Address, RouteEntry, SubnetMask } from '../types/network';
+import { ArpEntry, Ipv4Address, PingResult, RouteEntry, SubnetMask } from '../types/network';
 import { ArpPacket, IcmpPacket, Ipv4Packet } from '../types/packet';
 import { getNetworkAddress, ipToNumber, maskToPrefix } from '../utils/ip';
 import { BROADCAST_MAC, generateMac, isBroadcastMac, normalizeMac } from '../utils/mac';
@@ -16,6 +16,11 @@ export class VirtualRouter extends BaseDevice {
   private readonly arpTable = new Map<Ipv4Address, ArpEntry>();
   private readonly pendingPackets = new Map<Ipv4Address, Ipv4Packet[]>();
   private readonly arpAgingTimeoutNs = 300_000_000_000n;
+  private icmpSeqCounter = 1;
+  private readonly activePings = new Map<
+    number,
+    { targetIp: Ipv4Address; sentAt: bigint; callback?: (res: PingResult) => void }
+  >();
 
   constructor(config: RouterConfig) {
     super(config.id, config.name, 'ROUTER');
@@ -252,6 +257,20 @@ export class VirtualRouter extends BaseDevice {
             data: icmp.data,
           };
           this.forwardOrReplyPacket(packet.srcIp, localIface.ipAddress!, 1, replyIcmp);
+        } else if (icmp.type === 0) {
+          // ICMP Echo Reply -> resolve active ping
+          const active = this.activePings.get(icmp.sequenceNumber);
+          if (active) {
+            const rtt = arrivalTime - active.sentAt;
+            this.activePings.delete(icmp.sequenceNumber);
+            active.callback?.({
+              targetIp: packet.srcIp,
+              sequenceNumber: icmp.sequenceNumber,
+              status: 'SUCCESS',
+              roundTripTimeNs: rtt,
+              message: `Reply from ${packet.srcIp}: seq=${icmp.sequenceNumber} time=${Number(rtt / 1_000_000n)}ms`,
+            });
+          }
         }
       }
       return;
@@ -397,5 +416,54 @@ export class VirtualRouter extends BaseDevice {
 
   public getArpTable(): ArpEntry[] {
     return Array.from(this.arpTable.values());
+  }
+
+  public clearArpTable(): void {
+    this.arpTable.clear();
+  }
+
+  public ping(targetIp: Ipv4Address, callback?: (res: PingResult) => void): number | null {
+    const route = this.findLongestPrefixMatch(targetIp);
+    if (!route) {
+      return null;
+    }
+
+    const egressIface = this.getInterface(route.interfaceName);
+    if (!egressIface || !egressIface.isUp() || !egressIface.ipAddress) {
+      return null;
+    }
+
+    const seq = this.icmpSeqCounter++;
+    const now = this.context?.now() ?? 0n;
+    this.activePings.set(seq, { targetIp, sentAt: now, callback });
+
+    const icmpRequest: IcmpPacket = {
+      type: 8,
+      code: 0,
+      checksum: 0,
+      identifier: 1,
+      sequenceNumber: seq,
+      data: 'cisco-router-ping',
+    };
+
+    const packet: Ipv4Packet = {
+      version: 4,
+      ihl: 5,
+      tos: 0,
+      totalLength: 84,
+      identification: Math.floor(Math.random() * 65535),
+      flags: 0,
+      fragmentOffset: 0,
+      ttl: 255,
+      protocol: 1,
+      checksum: 0,
+      srcIp: egressIface.ipAddress,
+      destIp: targetIp,
+      payload: icmpRequest,
+    };
+
+    const nextHopIp = route.type === 'CONNECTED' ? targetIp : route.nextHop!;
+    this.sendPacketToNextHop(packet, nextHopIp, egressIface.name, now);
+    return seq;
   }
 }

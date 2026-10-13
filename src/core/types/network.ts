@@ -8,6 +8,14 @@ export type Ipv4Address = string; // e.g. "192.168.1.1"
 export type SubnetMask = string; // e.g. "255.255.255.0"
 export type PortId = string;
 
+export interface PingResult {
+  targetIp: Ipv4Address;
+  sequenceNumber: number;
+  status: 'SUCCESS' | 'UNREACHABLE' | 'TTL_EXPIRED' | 'TIMEOUT';
+  roundTripTimeNs?: bigint;
+  message?: string;
+}
+
 export interface NetworkInterfaceConfig {
   id: string;
   name: string; // e.g. "FastEthernet0/1", "GigabitEthernet0/0", "eth0"

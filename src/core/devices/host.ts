@@ -1,9 +1,11 @@
 import { EthernetFrame } from '../types/frame';
-import { ArpEntry, Ipv4Address, MacAddress, SubnetMask } from '../types/network';
+import { ArpEntry, Ipv4Address, MacAddress, PingResult, SubnetMask } from '../types/network';
 import { ArpPacket, IcmpPacket, Ipv4Packet } from '../types/packet';
 import { isBroadcastIp, isSameSubnet } from '../utils/ip';
 import { BROADCAST_MAC, generateMac, isBroadcastMac, normalizeMac } from '../utils/mac';
 import { BaseDevice } from './base-device';
+
+export type { PingResult };
 
 export interface HostConfig {
   id: string;
@@ -13,14 +15,6 @@ export interface HostConfig {
   subnetMask?: SubnetMask;
   defaultGateway?: Ipv4Address;
   arpAgingTimeoutNs?: bigint;
-}
-
-export interface PingResult {
-  targetIp: Ipv4Address;
-  sequenceNumber: number;
-  status: 'SUCCESS' | 'UNREACHABLE' | 'TTL_EXPIRED' | 'TIMEOUT';
-  roundTripTimeNs?: bigint;
-  message?: string;
 }
 
 export class VirtualHost extends BaseDevice {
